@@ -1,3 +1,5 @@
+/// <reference path="./eventable.d.ts" />
+
 //     Backbone.js 1.1.2
 
 //     (c) 2010-2014 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
@@ -5,6 +7,10 @@
 //     For all details and documentation:
 //     http://backbonejs.org
 
+// eventable.js 1.0
+// (c) 2017-2020 Jingyuan Jiang <appleskiller@163.com>
+// 感谢Backbone的原作者
+// https://github.com/appleskiller/eventable/
 
 // Regular expression used to split event strings.
 var eventSplitter = /\s+/;
@@ -51,25 +57,35 @@ var triggerEvents = function(events, args) {
 
 import * as _ from "lodash";
 
-type EventItem = {
-    callback: any;
-    context: any;
-    ctx: any;
-    priority: number;
-}
-type Dic = {
-    [name: string]: any;
-}
-type Name = {
-    [name: string]: (...args)=>void;
-}
+/**
+ * Dispatcher类在Backbone.Events的基础上增加了priority参数以及hasListener方法。
+ * 同时，Dispatcher类将可以直接使用在Typescript中
+ * @export
+ * @class Dispatcher
+ */
+export class Dispatcher implements IDispatcher {
+    _events: {[name: string]: EventItem[]};
+    _listenId: string;
+    private _listeningTo: {[listenId: string]: IDispatcher};
 
-
-export class Dispatcher {
-
-    private _events: {[name: string]: EventItem[]};
-    private _listeningTo: {[listenId: string]: Dispatcher};
-    private _listenId: string;
+    // Bind an event to a `callback` function. Passing `"all"` will bind
+    // the callback to all events fired.
+    /**
+     * 绑定指定事件到一个处理函数；
+     * 对于特殊的“all”类型的事件处理函数，任何事件发生都会被触发
+     * 越高优先级的监听器越先被处理
+     * 此函数具有两种函数签名
+     * on(name: string , callback: any , context?: any , priority?: number);
+     * on(name: Name , context?: any , priority);
+     * 
+     * @param {(string|Name)} name
+     * @param {*} [callback]
+     * @param {*} [context]
+     * @param {number} [priority]
+     * @returns
+     * 
+     * @memberOf Dispatcher
+     */
     on(name: string|Name, callback?: any, context?: any, priority?: number) {
         if (!eventsApi(this, 'on', name, [callback, context, priority]) || !callback) return this;
         this._events || (this._events = {});
@@ -77,15 +93,33 @@ export class Dispatcher {
         priority = _.isUndefined(priority) ? 0 : priority;
         var item = {callback: callback, context: context, priority: priority, ctx: context || this};
         for (var i: number = events.length - 1; i >=0 ; i--) {
-            if (events[i].priority <= item.priority) {
+            if (events[i].priority >= item.priority) {
                 events.splice(i+1 , 0 , item);
                 break;
             }
         }
         return this;
     }
+
+
     // Bind an event to only be triggered a single time. After the first time
     // the callback is invoked, it will be removed.
+    /**
+     * 一次性的绑定指定事件到一个处理函数；
+     * 一旦事件被处理就立刻被移除。
+     * 越高优先级的监听器越先被处理
+     * 此函数具有两种函数签名
+     * once(name: string , callback: any , context?: any , priority?: number);
+     * once(name: Name , context?: any , priority);
+     * 
+     * @param {(string|Name)} name
+     * @param {*} [callback]
+     * @param {*} [context]
+     * @param {number} [priority]
+     * @returns
+     * 
+     * @memberOf Dispatcher
+     */
     once(name: string|Name, callback?: any, context?: any, priority?: number) {
         if (!eventsApi(this, 'once', name, [callback, context, priority]) || !callback) return this;
         var self = this;
@@ -100,6 +134,18 @@ export class Dispatcher {
     // callbacks with that function. If `callback` is null, removes all
     // callbacks for the event. If `name` is null, removes all bound
     // callbacks for all events.
+    /**
+     * 移除一个或多个响应函数。
+     * 此函数具有两种函数签名
+     * once(name: string , callback: any , context?: any);
+     * once(name: Name , context?: any);
+     * @param {(string|Name)} [name]
+     * @param {*} [callback]
+     * @param {*} [context]
+     * @returns
+     * 
+     * @memberOf Dispatcher
+     */
     off(name?: string|Name, callback?: any, context?: any) {
         if (!this._events || !eventsApi(this, 'off', name, [callback, context])) return this;
 
@@ -146,9 +192,26 @@ export class Dispatcher {
 
         return this;
     }
+    /**
+     * 与on方法相同
+     * @param {(string|Name)} name
+     * @param {*} [callback]
+     * @param {*} [context]
+     * @param {number} [priority]
+     * 
+     * @memberOf Dispatcher
+     */
     bind(name: string|Name, callback?: any, context?: any, priority?: number) {
         this.on(name , callback , context , priority);
     }
+    /**
+     * 与off方法相同
+     * @param {(string|Name)} [name]
+     * @param {*} [callback]
+     * @param {*} [context]
+     * 
+     * @memberOf Dispatcher
+     */
     unbind(name?: string|Name, callback?: any, context?: any) {
         this.off(name , callback , context);
     }
@@ -156,6 +219,14 @@ export class Dispatcher {
     // passed the same arguments as `trigger` is, apart from the event name
     // (unless you're listening on `"all"`, which will cause your callback to
     // receive the true name of the event as the first argument).
+    /**
+     * 派发一个或多个指定事件
+     * @param {(string|Dic)} name
+     * @param {any} args
+     * @returns
+     * 
+     * @memberOf Dispatcher
+     */
     trigger(name: string|Dic, ...args) {
         if (!this._events) return this;
         if (!eventsApi(this, 'trigger', name, args)) return this;
@@ -169,7 +240,20 @@ export class Dispatcher {
     // Inversion-of-control versions of `on` and `once`. Tell *this* object to
     // listen to an event in another object ... keeping track of what it's
     // listening to.
-    listenTo(obj: Dispatcher, name: string|Name, callback?: any, priority?: number) {
+    /**
+     * 监听指定对象的特定事件。
+     * 此函数具有两种函数签名
+     * listenTo(obj: IDispatcher, name: string, callback?: any, priority?: number);
+     * listenTo(obj: IDispatcher, name: Name, priority?: number);
+     * @param {IDispatcher} obj
+     * @param {(string|Name)} name
+     * @param {*} [callback]
+     * @param {number} [priority]
+     * @returns
+     * 
+     * @memberOf Dispatcher
+     */
+    listenTo(obj: IDispatcher, name: string|Name, callback?: any, priority?: number) {
         var listeningTo = this._listeningTo || (this._listeningTo = {});
         var id = obj._listenId || (obj._listenId = _.uniqueId('l'));
         listeningTo[id] = obj;
@@ -182,7 +266,21 @@ export class Dispatcher {
         return this;
     }
 
-    listenToOnce(obj: Dispatcher, name: string|Name, callback?: any, priority?: number) {
+    /**
+     * 一次性的监听指定对象的特定事件。
+     * 一旦事件被处理就立刻被移除。
+     * 此函数具有两种函数签名
+     * listenToOnce(obj: IDispatcher, name: string, callback?: any, priority?: number);
+     * listenToOnce(obj: IDispatcher, name: Name, priority?: number);
+     * @param {IDispatcher} obj
+     * @param {(string|Name)} name
+     * @param {*} [callback]
+     * @param {number} [priority]
+     * @returns
+     * 
+     * @memberOf Dispatcher
+     */
+    listenToOnce(obj: IDispatcher, name: string|Name, callback?: any, priority?: number) {
         if (typeof name === 'object') {
             priority = callback;
             for (var event in name) this.listenToOnce(obj, event, name[event], priority);
@@ -206,7 +304,16 @@ export class Dispatcher {
 
     // Tell this object to stop listening to either specific events ... or
     // to every object it's currently listening to.
-    stopListening(obj?: Dispatcher, name?: string|Name, callback?: any) {
+    /**
+     * 取消指定对象的特定事件监听
+     * @param {IDispatcher} [obj]
+     * @param {(string|Name)} [name]
+     * @param {*} [callback]
+     * @returns
+     * 
+     * @memberOf Dispatcher
+     */
+    stopListening(obj?: IDispatcher, name?: string|Name, callback?: any) {
         var listeningTo = this._listeningTo;
         if (!listeningTo) return this;
         var remove = !name && !callback;
@@ -219,5 +326,25 @@ export class Dispatcher {
         }
         return this;
     }
-    
+    /**
+     * 检查指定事件是否有任何处理函数。
+     * @param {string} name
+     * @returns {boolean}
+     * 
+     * @memberOf Dispatcher
+     */
+    hasListener(name: string): boolean {
+        return this._events && !!this._events[name];
+    }
+}
+
+/**
+ * 将IDispatcher的核心事件函数mixin到指定对象原型上，以使指定对象具有事件处理能力。
+ * @export
+ * @param {*} proto
+ * @returns {void}
+ */
+export function mixin(proto: any): void {
+    if (!proto) return null;
+    _.extend(proto , Dispatcher.prototype);
 }
