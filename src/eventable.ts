@@ -57,9 +57,13 @@ type EventItem = {
     ctx: any;
     priority: number;
 }
+type Dic = {
+    [name: string]: any;
+}
 type Name = {
     [name: string]: (...args)=>void;
 }
+
 
 export class Dispatcher {
 
@@ -67,18 +71,25 @@ export class Dispatcher {
     private _listeningTo: {[listenId: string]: Dispatcher};
     private _listenId: string;
     on(name: string|Name, callback?: any, context?: any, priority?: number) {
-        if (!eventsApi(this, 'on', name, [callback, context]) || !callback) return this;
+        if (!eventsApi(this, 'on', name, [callback, context, priority]) || !callback) return this;
         this._events || (this._events = {});
         var events = this._events[<string>name] || (this._events[<string>name] = []);
-        events.push({callback: callback, context: context, priority: priority, ctx: context || this});
+        priority = _.isUndefined(priority) ? 0 : priority;
+        var item = {callback: callback, context: context, priority: priority, ctx: context || this};
+        for (var i: number = events.length - 1; i >=0 ; i--) {
+            if (events[i].priority <= item.priority) {
+                events.splice(i+1 , 0 , item);
+                break;
+            }
+        }
         return this;
     }
     // Bind an event to only be triggered a single time. After the first time
     // the callback is invoked, it will be removed.
     once(name: string|Name, callback?: any, context?: any, priority?: number) {
-        if (!eventsApi(this, 'once', name, [callback, context]) || !callback) return this;
+        if (!eventsApi(this, 'once', name, [callback, context, priority]) || !callback) return this;
         var self = this;
-        var once = _.once(function() {
+        var once: any = _.once(function() {
             self.off(<string>name, once);
             callback.apply(this, arguments);
         });
@@ -89,7 +100,7 @@ export class Dispatcher {
     // callbacks with that function. If `callback` is null, removes all
     // callbacks for the event. If `name` is null, removes all bound
     // callbacks for all events.
-    off(name: string, callback: any, context?: any) {
+    off(name?: string|Name, callback?: any, context?: any) {
         if (!this._events || !eventsApi(this, 'off', name, [callback, context])) return this;
 
         // Remove all callbacks for all events.
@@ -103,12 +114,12 @@ export class Dispatcher {
             name = names[i];
 
             // Bail out if there are no events stored.
-            var events = this._events[name];
+            var events = this._events[<string>name];
             if (!events) continue;
 
             // Remove all callbacks for this event.
             if (!callback && !context) {
-                delete this._events[name];
+                delete this._events[<string>name];
                 continue;
             }
 
@@ -127,9 +138,9 @@ export class Dispatcher {
 
             // Replace events if there are any remaining.  Otherwise, clean up.
             if (remaining.length) {
-                this._events[name] = remaining;
+                this._events[<string>name] = remaining;
             } else {
-                delete this._events[name];
+                delete this._events[<string>name];
             }
         }
 
@@ -138,17 +149,17 @@ export class Dispatcher {
     bind(name: string|Name, callback?: any, context?: any, priority?: number) {
         this.on(name , callback , context , priority);
     }
-    unbind(name: string, callback: any, context?: any) {
+    unbind(name?: string|Name, callback?: any, context?: any) {
         this.off(name , callback , context);
     }
     // Trigger one or many events, firing all bound callbacks. Callbacks are
     // passed the same arguments as `trigger` is, apart from the event name
     // (unless you're listening on `"all"`, which will cause your callback to
     // receive the true name of the event as the first argument).
-    trigger(name: string, ...args) {
+    trigger(name: string|Dic, ...args) {
         if (!this._events) return this;
         if (!eventsApi(this, 'trigger', name, args)) return this;
-        var events = this._events[name];
+        var events = this._events[<string>name];
         var allEvents = this._events["all"];
         if (events) triggerEvents(events, args);
         if (allEvents) triggerEvents(allEvents, arguments);
@@ -158,24 +169,29 @@ export class Dispatcher {
     // Inversion-of-control versions of `on` and `once`. Tell *this* object to
     // listen to an event in another object ... keeping track of what it's
     // listening to.
-    listenTo(obj: Dispatcher, name: string, callback: any) {
+    listenTo(obj: Dispatcher, name: string|Name, callback?: any, priority?: number) {
         var listeningTo = this._listeningTo || (this._listeningTo = {});
         var id = obj._listenId || (obj._listenId = _.uniqueId('l'));
         listeningTo[id] = obj;
-        if (!callback && typeof name === 'object') callback = this;
-        obj.on(name, callback, this);
+        if (typeof name === 'object') {
+            priority = callback;
+            obj.on(name , this , priority)
+        } else {
+            obj.on(name, callback, this , priority);
+        }
         return this;
     }
 
-    listenToOnce(obj: Dispatcher, name: string, callback: any) {
+    listenToOnce(obj: Dispatcher, name: string|Name, callback?: any, priority?: number) {
         if (typeof name === 'object') {
-            for (var event in name) this.listenToOnce(obj, event, name[event]);
+            priority = callback;
+            for (var event in name) this.listenToOnce(obj, event, name[event], priority);
             return this;
         }
         if (eventSplitter.test(name)) {
             var names = name.split(eventSplitter);
             for (var i = 0, length = names.length; i < length; i++) {
-              this.listenToOnce(obj, names[i], callback);
+              this.listenToOnce(obj, names[i], callback, priority);
             }
             return this;
         }
@@ -184,13 +200,13 @@ export class Dispatcher {
             this.stopListening(obj, name, once);
             callback.apply(this, arguments);
         });
-        once._callback = callback;
-        return this.listenTo(obj, name, once);
+        once["_callback"] = callback;
+        return this.listenTo(obj, name, once, priority);
     }
 
     // Tell this object to stop listening to either specific events ... or
     // to every object it's currently listening to.
-    stopListening(obj, name, callback) {
+    stopListening(obj?: Dispatcher, name?: string|Name, callback?: any) {
         var listeningTo = this._listeningTo;
         if (!listeningTo) return this;
         var remove = !name && !callback;
@@ -203,4 +219,5 @@ export class Dispatcher {
         }
         return this;
     }
+    
 }
