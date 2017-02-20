@@ -1,5 +1,8 @@
 {
   "dependencies": {
     "lodash": "registry:npm/lodash#4.0.0+20161015015725"
+  },
+  "globalDevDependencies": {
+    "jasmine": "registry:dt/jasmine#2.5.0+20170207112528"
   }
 }

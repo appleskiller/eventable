@@ -15,9 +15,8 @@ module.exports = function(config) {
 
     // list of files / patterns to load in the browser
     files: [
-      'test/**/*[sS]pec.js'
+      'test/**/*.ts',
     ],
-
 
     // list of files to exclude
     exclude: [
@@ -27,9 +26,23 @@ module.exports = function(config) {
     // preprocess matching files before serving them to the browser
     // available preprocessors: https://npmjs.org/browse/keyword/karma-preprocessor
     preprocessors: {
+      'test/**/*.ts': ["webpack"]
     },
-
-
+    webpack: {
+      resolve: {
+        extensions: ['.webpack.js', '.web.js', '.ts', '.js']
+      },
+      module: {
+        loaders: [
+          {
+            test: /\.tsx?$/,
+            exclude: /node_modules/,
+            loader: 'ts-loader'
+          }
+        ],
+      },
+      devtool: "source-map"
+    },
     // test results reporter to use
     // possible values: 'dots', 'progress'
     // available reporters: https://npmjs.org/browse/keyword/karma-reporter
