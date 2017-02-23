@@ -92,11 +92,15 @@ export class Dispatcher implements IDispatcher {
         var events = this._events[<string>name] || (this._events[<string>name] = []);
         priority = _.isUndefined(priority) ? 0 : priority;
         var item = {callback: callback, context: context, priority: priority, ctx: context || this};
-        for (var i: number = events.length - 1; i >=0 ; i--) {
-            if (events[i].priority >= item.priority) {
-                events.splice(i+1 , 0 , item);
-                break;
+        if (events.length) {
+            for (var i: number = events.length - 1; i >=0 ; i--) {
+                if (events[i].priority >= item.priority) {
+                    events.splice(i+1 , 0 , item);
+                    break;
+                }
             }
+        } else {
+            events.push(item);
         }
         return this;
     }
@@ -233,7 +237,7 @@ export class Dispatcher implements IDispatcher {
         var events = this._events[<string>name];
         var allEvents = this._events["all"];
         if (events) triggerEvents(events, args);
-        if (allEvents) triggerEvents(allEvents, arguments);
+        if (allEvents) triggerEvents(allEvents, args);
         return this;
     }
 
