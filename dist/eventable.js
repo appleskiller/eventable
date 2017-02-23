@@ -1,83 +1,10 @@
-/******/ (function(modules) { // webpackBootstrap
-/******/ 	// The module cache
-/******/ 	var installedModules = {};
-/******/
-/******/ 	// The require function
-/******/ 	function __webpack_require__(moduleId) {
-/******/
-/******/ 		// Check if module is in cache
-/******/ 		if(installedModules[moduleId])
-/******/ 			return installedModules[moduleId].exports;
-/******/
-/******/ 		// Create a new module (and put it into the cache)
-/******/ 		var module = installedModules[moduleId] = {
-/******/ 			i: moduleId,
-/******/ 			l: false,
-/******/ 			exports: {}
-/******/ 		};
-/******/
-/******/ 		// Execute the module function
-/******/ 		modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
-/******/
-/******/ 		// Flag the module as loaded
-/******/ 		module.l = true;
-/******/
-/******/ 		// Return the exports of the module
-/******/ 		return module.exports;
-/******/ 	}
-/******/
-/******/
-/******/ 	// expose the modules object (__webpack_modules__)
-/******/ 	__webpack_require__.m = modules;
-/******/
-/******/ 	// expose the module cache
-/******/ 	__webpack_require__.c = installedModules;
-/******/
-/******/ 	// identity function for calling harmony imports with the correct context
-/******/ 	__webpack_require__.i = function(value) { return value; };
-/******/
-/******/ 	// define getter function for harmony exports
-/******/ 	__webpack_require__.d = function(exports, name, getter) {
-/******/ 		if(!__webpack_require__.o(exports, name)) {
-/******/ 			Object.defineProperty(exports, name, {
-/******/ 				configurable: false,
-/******/ 				enumerable: true,
-/******/ 				get: getter
-/******/ 			});
-/******/ 		}
-/******/ 	};
-/******/
-/******/ 	// getDefaultExport function for compatibility with non-harmony modules
-/******/ 	__webpack_require__.n = function(module) {
-/******/ 		var getter = module && module.__esModule ?
-/******/ 			function getDefault() { return module['default']; } :
-/******/ 			function getModuleExports() { return module; };
-/******/ 		__webpack_require__.d(getter, 'a', getter);
-/******/ 		return getter;
-/******/ 	};
-/******/
-/******/ 	// Object.prototype.hasOwnProperty.call
-/******/ 	__webpack_require__.o = function(object, property) { return Object.prototype.hasOwnProperty.call(object, property); };
-/******/
-/******/ 	// __webpack_public_path__
-/******/ 	__webpack_require__.p = "";
-/******/
-/******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 1);
-/******/ })
-/************************************************************************/
-/******/ ([
-/* 0 */
-/***/ (function(module, exports) {
-
-module.exports = _;
-
-/***/ }),
-/* 1 */
-/***/ (function(module, exports, __webpack_require__) {
-
-var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/// <reference path="./eventable.d.ts" />
-!(__WEBPACK_AMD_DEFINE_ARRAY__ = [__webpack_require__, exports, __webpack_require__(0)], __WEBPACK_AMD_DEFINE_RESULT__ = function (require, exports, _) {
+var __extends = (this && this.__extends) || function (d, b) {
+    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+    function __() { this.constructor = d; }
+    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+};
+/// <reference path="./eventable.d.ts" />
+define("src/eventable", ["require", "exports", "lodash"], function (require, exports, _) {
     "use strict";
     //     Backbone.js 1.1.2
     //     (c) 2010-2014 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
@@ -175,11 +102,16 @@ var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/// <reference p
             var events = this._events[name] || (this._events[name] = []);
             priority = _.isUndefined(priority) ? 0 : priority;
             var item = { callback: callback, context: context, priority: priority, ctx: context || this };
-            for (var i = events.length - 1; i >= 0; i--) {
-                if (events[i].priority >= item.priority) {
-                    events.splice(i + 1, 0, item);
-                    break;
+            if (events.length) {
+                for (var i = events.length - 1; i >= 0; i--) {
+                    if (events[i].priority >= item.priority) {
+                        events.splice(i + 1, 0, item);
+                        break;
+                    }
                 }
+            }
+            else {
+                events.push(item);
             }
             return this;
         };
@@ -317,7 +249,7 @@ var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/// <reference p
             if (events)
                 triggerEvents(events, args);
             if (allEvents)
-                triggerEvents(allEvents, arguments);
+                triggerEvents(allEvents, args);
             return this;
         };
         // Inversion-of-control versions of `on` and `once`. Tell *this* object to
@@ -439,10 +371,210 @@ var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/// <reference p
         _.extend(proto, Dispatcher.prototype);
     }
     exports.mixin = mixin;
-}.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__),
-				__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
-
-
-/***/ })
-/******/ ]);
+});
+define("test/eventable.spec", ["require", "exports", "src/eventable"], function (require, exports, eventable) {
+    "use strict";
+    var TEST_EVENT = 'test_event';
+    var TEST_EVENT_1 = 'test_event_1';
+    describe("Dispatcher suite", function () {
+        it("使用‘on’监听特定事件", function () {
+            var listener = new eventable.Dispatcher();
+            listener.on(TEST_EVENT, function (e) {
+                expect(e).toBe(true);
+            });
+            listener.trigger(TEST_EVENT, true);
+        });
+        it("使用‘on’监听一组特定事件", function () {
+            var listener = new eventable.Dispatcher();
+            var count = 0;
+            var func = function (e) {
+                count++;
+            };
+            var handles = {};
+            handles[TEST_EVENT] = func;
+            handles[TEST_EVENT_1] = func;
+            listener.on(handles);
+            listener.trigger(TEST_EVENT, true);
+            listener.trigger(TEST_EVENT_1, true);
+            expect(count).toBe(2);
+        });
+        it("使用‘on’监听特定事件,并绑定特定context", function () {
+            var listener = new eventable.Dispatcher();
+            listener.on(TEST_EVENT, function (e) {
+                expect(this === listener).toBe(true);
+            });
+            listener.trigger(TEST_EVENT, true, listener);
+        });
+        it("使用‘on’监听特定事件,并设置处理优先级", function () {
+            var listener = new eventable.Dispatcher();
+            var result = '';
+            listener.on(TEST_EVENT, function (e) {
+                result += "1";
+            }, listener, 1);
+            listener.on(TEST_EVENT, function (e) {
+                result += "0";
+            });
+            listener.trigger(TEST_EVENT, true, listener);
+            expect(result).toBe("10");
+        });
+        it("使用‘all’监听任意事件", function () {
+            var listener = new eventable.Dispatcher();
+            listener.on("all", function (e) {
+                expect(e).toBe(true);
+            });
+            listener.trigger(TEST_EVENT, true);
+        });
+        it("使用‘off’方法移除特定处理函数", function () {
+            var listener = new eventable.Dispatcher();
+            var count = 0;
+            var func = function (e) {
+                count++;
+            };
+            listener.on(TEST_EVENT, function (e) {
+                count++;
+            });
+            listener.on(TEST_EVENT, func);
+            listener.off(TEST_EVENT, func);
+            listener.trigger(TEST_EVENT, true);
+            expect(count).toBe(1);
+        });
+        it("使用‘off’方法移除特定名称的所有处理函数", function () {
+            var listener = new eventable.Dispatcher();
+            var count = 0;
+            var func = function (e) {
+                count++;
+            };
+            listener.on(TEST_EVENT, function (e) {
+                count++;
+            });
+            listener.on(TEST_EVENT, func);
+            listener.off(TEST_EVENT);
+            listener.trigger(TEST_EVENT, true);
+            expect(count).toBe(0);
+        });
+        it("使用‘off’方法移除所有处理函数", function () {
+            var listener = new eventable.Dispatcher();
+            var count = 0;
+            var func = function (e) {
+                count++;
+            };
+            listener.on(TEST_EVENT_1, function (e) {
+                count++;
+            });
+            listener.on(TEST_EVENT, func);
+            listener.off();
+            listener.trigger(TEST_EVENT, true);
+            listener.trigger(TEST_EVENT_1, true);
+            expect(count).toBe(0);
+        });
+        it("使用‘listenTo’方法监听指定对象的事件", function () {
+            var dispatcher = new eventable.Dispatcher();
+            var listener = new eventable.Dispatcher();
+            var func = function (e) {
+                expect(e).toBe(true);
+            };
+            listener.listenTo(dispatcher, TEST_EVENT, func);
+            dispatcher.trigger(TEST_EVENT, true);
+        });
+        it("使用‘listenTo’方法监听指定对象的事件,并设置优先级", function () {
+            var dispatcher = new eventable.Dispatcher();
+            var listener = new eventable.Dispatcher();
+            var result = '';
+            listener.listenTo(dispatcher, TEST_EVENT, function (e) {
+                result += "1";
+            }, 1);
+            listener.listenTo(dispatcher, TEST_EVENT, function (e) {
+                result += "0";
+            });
+            dispatcher.trigger(TEST_EVENT, true, listener);
+            expect(result).toBe("10");
+        });
+        it("使用‘stopListening’方法移除特定处理函数", function () {
+            var dispatcher = new eventable.Dispatcher();
+            var listener = new eventable.Dispatcher();
+            var count = 0;
+            var func = function (e) {
+                count++;
+            };
+            listener.listenTo(dispatcher, TEST_EVENT, function (e) {
+                count++;
+            });
+            listener.listenTo(dispatcher, TEST_EVENT, func);
+            listener.stopListening(dispatcher, TEST_EVENT, func);
+            dispatcher.trigger(TEST_EVENT, true);
+            expect(count).toBe(1);
+        });
+        it("使用‘stopListening’方法移除特定名称的所有处理函数", function () {
+            var dispatcher = new eventable.Dispatcher();
+            var listener = new eventable.Dispatcher();
+            var count = 0;
+            var func = function (e) {
+                count++;
+            };
+            listener.listenTo(dispatcher, TEST_EVENT, function (e) {
+                count++;
+            });
+            listener.listenTo(dispatcher, TEST_EVENT, func);
+            listener.stopListening(dispatcher, TEST_EVENT);
+            dispatcher.trigger(TEST_EVENT, true);
+            expect(count).toBe(0);
+        });
+        it("使用‘stopListening’方法移除所有处理函数", function () {
+            var dispatcher = new eventable.Dispatcher();
+            var listener = new eventable.Dispatcher();
+            var count = 0;
+            var func = function (e) {
+                count++;
+            };
+            listener.listenTo(dispatcher, TEST_EVENT_1, function (e) {
+                count++;
+            });
+            listener.listenTo(dispatcher, TEST_EVENT, func);
+            listener.stopListening(dispatcher);
+            dispatcher.trigger(TEST_EVENT, true);
+            dispatcher.trigger(TEST_EVENT_1, true);
+            expect(count).toBe(0);
+        });
+        it("使用‘stopListening’方法移除所有监听", function () {
+            var dispatcher = new eventable.Dispatcher();
+            var listener = new eventable.Dispatcher();
+            var count = 0;
+            var func = function (e) {
+                count++;
+            };
+            listener.listenTo(dispatcher, TEST_EVENT_1, function (e) {
+                count++;
+            });
+            listener.listenTo(dispatcher, TEST_EVENT, func);
+            listener.stopListening();
+            dispatcher.trigger(TEST_EVENT, true);
+            dispatcher.trigger(TEST_EVENT_1, true);
+            expect(count).toBe(0);
+        });
+    });
+    describe("eventable suite", function () {
+        it("mixin方法测试", function () {
+            var obj = {};
+            eventable.mixin(obj);
+            obj.on(TEST_EVENT, function (e) {
+                expect(e).toBe(true);
+            });
+            obj.trigger(TEST_EVENT, true);
+        });
+        it("extend 扩展测试", function () {
+            var Ext = (function (_super) {
+                __extends(Ext, _super);
+                function Ext() {
+                    return _super !== null && _super.apply(this, arguments) || this;
+                }
+                return Ext;
+            }(eventable.Dispatcher));
+            var obj = new Ext();
+            obj.on(TEST_EVENT, function (e) {
+                expect(e).toBe(true);
+            });
+            obj.trigger(TEST_EVENT, true);
+        });
+    });
+});
 //# sourceMappingURL=eventable.js.map

@@ -1,6 +1,8 @@
 {
     "compilerOptions": {
-        "module": "amd", 
+        "module": "amd",
+        "rootDirs": ["./src"],
+        "outFile": "./dist/eventable.js",
         "sourceMap": true, 
         "target": "es5"
     }
